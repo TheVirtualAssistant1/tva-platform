@@ -1,0 +1,64 @@
+﻿# --- Node / build ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+dist/
+build/
+coverage/
+
+# --- Env / secrets ---
+.env
+.env.*
+!.env.example
+
+# --- OS / Editor ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# --- TVA local logs / outputs ---
+run_logs/
+*.log
+*.err
+debug_output.txt
+
+# --- Backups / temp / scratch ---
+_repair_backups/
+tmp_*
+tmp*/
+*.bak
+*.backup
+*BACKUP*
+*BROKEN*
+*CRASH*
+*RELEASE_BACKUP*
+*REVERT*
+*FIX_*
+server_fix_run.err
+server_run.err
+retell_proxy.err
+e2e.err
+
+# --- Local test artifacts ---
+req.json
+sub_debug.json
+tva_checkout_body.json
+tva_usage_body.json
+
+# --- Optional: local customer folders (if generated) ---
+customers*/
+
+# --- More backup naming patterns seen in this repo ---
+*.bak_*
+*.js.bak_*
+*.html.bak_*
+*.mjs.bak_*
+*.ps1.bak_*
+
+# --- Ignore server.js historical snapshots inside src/ ---
+src/server.js.*
+src/server.js.bak*
+src/server.js.rollback_*

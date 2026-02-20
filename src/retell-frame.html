@@ -1,0 +1,415 @@
+﻿<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TVA Retell Frame</title>
+
+  <style>
+    html,body { height:100%; width:100%; margin:0; background:#000; overflow:hidden; }
+  </style>
+</head>
+<body>
+  <script type="module">
+    // --------- Params ----------
+    const p = new URLSearchParams(location.search);
+
+    const publicKey    = p.get("public_key") || "";
+    const agentId      = p.get("agent_id") || "";
+    const agentVersion = p.get("agent_version") || "";
+    const title        = p.get("title") || "The Virtual Assistant";
+    const logoUrl      = p.get("logo_url") || "";
+    const color        = p.get("color") || "#7c3aed"; // lila (Header/Buttons)
+    const autoOpen     = (p.get("auto_open") || "true").toLowerCase();
+
+    
+    const subscriptionId = p.get("subscription_id") || "";
+if (!publicKey || !agentId) {
+      document.body.innerHTML =
+        `<div style="color:#fff;font-family:system-ui;padding:16px">
+          Missing public_key or agent_id in URL.<br>
+          public_key=${publicKey}<br>
+          agent_id=${agentId}
+        </div>`;
+      throw new Error("Missing public_key or agent_id");
+    }
+
+    // --------- Load Retell Widget ----------
+    const s = document.createElement("script");
+    s.id = "retell-widget";
+    s.type = "module";
+    s.src = "https://dashboard.retellai.com/retell-widget.js";
+
+    s.setAttribute("data-public-key", publicKey);
+    s.setAttribute("data-agent-id", agentId);
+    if (agentVersion) s.setAttribute("data-agent-version", agentVersion);
+
+    s.setAttribute("data-title", title);
+    if (logoUrl) s.setAttribute("data-logo-url", logoUrl);
+
+    // Official: one theme color (header/buttons)
+    s.setAttribute("data-color", color);
+    s.setAttribute("data-auto-open", autoOpen);
+
+    document.head.appendChild(s);
+
+    // --------- TVA THEME PATCH (black bg + bot/user bubble colors) ----------
+    const COLORS = {
+      bg: "#000000",
+      surface: "#0b0b0b",
+      border: "rgba(255,255,255,.12)",
+      text: "#ffffff",
+      bot: "#7c3aed",   // lila
+      user: "#06b6d4"   // türkis
+    };
+
+    const css = (el, styles) => { for (const k in styles) el.style[k] = styles[k]; };
+
+    function isTransparent(bg) {
+      return !bg || bg === "transparent" || bg === "rgba(0, 0, 0, 0)";
+    }
+
+    function pxToNum(v) {
+      const n = parseFloat(String(v || "").replace("px",""));
+      return isNaN(n) ? 0 : n;
+    }
+
+    function looksLikeBubble(el, containerW) {
+      const st = getComputedStyle(el);
+      const bg = st.backgroundColor;
+
+      if (isTransparent(bg)) return false;
+
+      const txt = (el.innerText || "").trim();
+      if (!txt) return false;
+
+      const br = pxToNum(st.borderTopLeftRadius);
+      const pad = pxToNum(st.paddingLeft) + pxToNum(st.paddingRight) + pxToNum(st.paddingTop) + pxToNum(st.paddingBottom);
+      if (br < 8 || pad < 12) return false;
+
+      const r = el.getBoundingClientRect();
+      if (r.width < 60 || r.width > containerW * 0.92) return false;
+
+      if (el.closest("button, input, textarea")) return false;
+
+      return true;
+    }
+
+    function findMainChatScroller() {
+      let best = null;
+      let bestScore = 0;
+
+      const all = document.querySelectorAll("div,main,section");
+      for (const el of all) {
+        const st = getComputedStyle(el);
+        const r = el.getBoundingClientRect();
+        if (r.width < 200 || r.height < 200) continue;
+
+        const overflowY = st.overflowY;
+        const scrollable = (overflowY === "auto" || overflowY === "scroll") && el.scrollHeight > el.clientHeight + 40;
+
+        const score = (r.width * r.height) * (scrollable ? 2 : 1);
+        if (score > bestScore) {
+          bestScore = score;
+          best = el;
+        }
+      }
+      return best;
+    }
+
+    function applyBackgrounds() {
+      document.documentElement.style.background = COLORS.bg;
+      document.body.style.background = COLORS.bg;
+
+      const candidates = document.querySelectorAll("div,main,section,header,footer");
+      for (const el of candidates) {
+        const st = getComputedStyle(el);
+        const bg = st.backgroundColor;
+
+        if (bg && bg.startsWith("rgb(")) {
+          const nums = bg.replace("rgb(","").replace(")","").split(",").map(x=>parseInt(x.trim(),10));
+          if (nums.length === 3) {
+            const [r,g,b] = nums;
+            const light = (r+g+b)/3;
+            if (light > 230) {
+              css(el, { background: COLORS.bg });
+            }
+          }
+        }
+      }
+
+      const inputs = document.querySelectorAll("input, textarea");
+      inputs.forEach(inp => {
+        css(inp, {
+          background: COLORS.surface,
+          color: COLORS.text,
+          border: `1px solid ${COLORS.border}`
+        });
+      });
+    }
+
+    function applyBubbleTheme() {
+      const scroller = findMainChatScroller();
+      const container = scroller || document.body;
+      const cw = container.getBoundingClientRect().width || window.innerWidth;
+
+      const els = Array.from(document.querySelectorAll("div, p, span"))
+        .filter(el => looksLikeBubble(el, cw));
+
+      if (!els.length) return;
+
+      const mid = cw / 2;
+
+      for (const el of els) {
+        const r = el.getBoundingClientRect();
+        const isUser = (r.left + r.width/2) > mid; // right side = user
+        const bg = isUser ? COLORS.user : COLORS.bot;
+
+        css(el, {
+          background: bg,
+          color: COLORS.text,
+          border: "none"
+        });
+
+        el.querySelectorAll("a").forEach(a => css(a, { color: "#fff", textDecoration: "underline" }));
+      }
+    }
+
+        // --------- TVA METERING (Bot message -> /v1/usage/increment) ----------
+    const TVA_API_BASE =
+      ((location.hostname === "127.0.0.1" || location.hostname === "localhost") && String(location.port) === "3000")
+        ? "http://127.0.0.1:3001"
+        : location.origin;
+    // Dedupe: count each bot message text only once (prevents double-fire from multiple mutations)
+    const TVA_SEEN_BOT_TEXTS = new Set();
+    let TVA_LAST_METER_MS = 0; // cooldown to prevent double count on re-render
+
+    async function tvaIncrementOnce() {
+      const nowMs = Date.now();
+      if (nowMs - TVA_LAST_METER_MS < 800) return; // 800ms cooldown
+      TVA_LAST_METER_MS = nowMs;
+      if (!subscriptionId) return;
+      try {
+        const r = await fetch(`${TVA_API_BASE}/v1/usage/increment`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ subscription_id: subscriptionId, amount: 1 })
+        });
+        if (!r.ok) {
+          const t = await r.text().catch(() => "");
+          console.log("[TVA_METER] increment failed", r.status, t);
+        } else {
+          console.log("[TVA_METER] increment ok");
+        }
+      } catch (e) {
+        console.log("[TVA_METER] increment error", e && e.message ? e.message : e);
+      }
+    }
+
+    function meterNewBotBubbles() {
+      // Try to locate Retell shadow root (Retell renders inside shadow DOM)
+      let host = document.getElementById("shadow-root");
+      if (!host || !host.shadowRoot) {
+        const all = document.querySelectorAll("body *");
+        for (let i = 0; i < all.length; i++) {
+          if (all[i] && all[i].shadowRoot) { host = all[i]; break; }
+        }
+      }
+      const root = (host && host.shadowRoot) ? host.shadowRoot : document;
+      // Re-use the same bubble detection (best effort)
+      const scroller = findMainChatScroller();
+      const container = scroller || document.body;
+      const cw = container.getBoundingClientRect().width || window.innerWidth;
+      const mid = cw / 2;
+
+      const els = Array.from(root.querySelectorAll("div, p, span"))
+        .filter(el => looksLikeBubble(el, cw));
+
+      for (const el of els) {
+        // right side = user, left side = bot/agent
+        const r = el.getBoundingClientRect();
+        const isUser = (r.left + r.width/2) > mid;
+
+        if (isUser) continue;
+
+        // dedupe: mark element once
+        if (el.dataset && el.dataset.tvaMetered === "1") continue;
+                if (el.dataset) el.dataset.tvaMetered = "1";
+
+        // Dedupe by text (Retell can re-render same bubble multiple times)
+        const txt = String(el.innerText || "").trim();
+        if (!txt) continue;
+        if (TVA_SEEN_BOT_TEXTS.has(txt)) continue;
+        TVA_SEEN_BOT_TEXTS.add(txt);
+
+        // count exactly one per new bot bubble
+        tvaIncrementOnce();
+      }
+    }
+
+    let started = false;
+
+    function startThemeWatcher() {
+      if (started) return;
+      started = true;
+
+      applyBackgrounds();
+      applyBubbleTheme();
+
+      
+      meterNewBotBubbles();
+const obs = new MutationObserver(() => {
+        applyBackgrounds();
+        applyBubbleTheme();
+      
+      meterNewBotBubbles();
+});
+
+      obs.observe(document.documentElement, { subtree: true, childList: true, attributes: true });
+
+      let i = 0;
+      const t = setInterval(() => {
+        applyBackgrounds();
+        applyBubbleTheme();
+        
+      meterNewBotBubbles();
+i++;
+        if (i >= 20) clearInterval(t);
+      }, 250);
+    }
+
+    setTimeout(startThemeWatcher, 250);
+  </script>
+<!-- TVA_FRAME_THEME_START -->
+<script>
+(function(){
+  "use strict";
+
+  // Your theme colors:
+  var BOT  = "#7c3aed";  // lila
+  var USER = "#06b6d4";  // türkis
+  var BG   = "#000000";  // schwarz
+
+  function injectInto(sr){
+    if (!sr || sr.getElementById("TVA_SHADOW_THEME")) return false;
+
+    var st = document.createElement("style");
+    st.id = "TVA_SHADOW_THEME";
+    st.textContent = `
+      :host{ color:#fff !important; }
+      *{ box-sizing:border-box; }
+
+      /* Main areas */
+      .retell-chat-window,
+      .retell-messages,
+      .retell-body,
+      .retell-root {
+        background: ${BG} !important;
+        color: #fff !important;
+      }
+
+      /* Header stays purple-ish, force text white */
+      .retell-header{
+        background: ${BOT} !important;
+        color:#fff !important;
+      }
+      .retell-header *{ color:#fff !important; }
+
+      /* Message bubbles (best-effort selectors) */
+      .retell-msg.user{
+        background: ${USER} !important;
+        color:#fff !important;
+      }
+      .retell-msg.agent,
+      .retell-msg.bot{
+        background: ${BOT} !important;
+        color:#fff !important;
+      }
+
+      /* Ensure ALL text inside bubbles is white */
+      .retell-msg.user *,
+      .retell-msg.agent *,
+      .retell-msg.bot *{
+        color:#fff !important;
+      }
+
+      /* Inputs */
+      input, textarea, .retell-input, .retell-composer{
+        background:#0f0f0f !important;
+        color:#fff !important;
+        border:1px solid rgba(255,255,255,.18) !important;
+      }
+
+      /* Buttons */
+      button, .retell-send{
+        background:${BOT} !important;
+        color:#fff !important;
+        border:1px solid rgba(255,255,255,.16) !important;
+      }
+    `;
+    sr.appendChild(st);
+    return true;
+  }
+
+  function tryInject(){
+    // In your inspector you saw: #shadow-root (open)
+    // That means host element is id="shadow-root" and has .shadowRoot.
+    var host = document.getElementById("shadow-root");
+
+    // Sometimes Retell uses a different host. If so, try the first element that exposes shadowRoot:
+    if (!host || !host.shadowRoot) {
+      var all = document.querySelectorAll("body *");
+      for (var i=0;i<all.length;i++){
+        if (all[i] && all[i].shadowRoot){
+          host = all[i];
+          break;
+        }
+      }
+    }
+
+    if (host && host.shadowRoot) {
+      if (injectInto(host.shadowRoot)) return true;
+
+      // Keep it enforced if Retell re-renders
+      try {
+        var mo = new MutationObserver(function(){
+          injectInto(host.shadowRoot);
+          // also keep background black
+          try{
+            var w = host.shadowRoot.querySelector(".retell-chat-window");
+            if (w) w.style.background = BG;
+            var m = host.shadowRoot.querySelector(".retell-messages");
+            if (m) m.style.background = BG;
+          }catch(e){}
+        });
+        mo.observe(host.shadowRoot, {childList:true, subtree:true});
+      } catch(e){}
+      return true;
+    }
+    return false;
+  }
+
+  // Make iframe page itself dark too
+  document.documentElement.style.background = BG;
+  document.body.style.background = BG;
+
+  // Poll a bit until widget mounts
+  var t = 0;
+  var timer = setInterval(function(){
+    t += 1;
+    if (tryInject() || t > 80) clearInterval(timer); // ~8s max
+  }, 100);
+})();
+</script>
+<!-- TVA_FRAME_THEME_END -->
+</body>
+</html>
+
+
+
+
+
+
+
+
+
