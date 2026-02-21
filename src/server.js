@@ -438,7 +438,7 @@ if (already) {
   }
 });
 
-app.use(express.json({ limit: '1mb' }));
+app.use((req, res, next) => req.originalUrl === '/stripe/webhook' ? next() : express.json({ limit: '1mb' })(req, res, next));
 
 
 app.get("/health", (req, res) => res.json({ ok: true }));
@@ -726,6 +726,7 @@ app.get('/cancel', (req, res) => {
 });
 
 app.listen(port, () => console.log("API listening on http://localhost:" + port));
+
 
 
 
