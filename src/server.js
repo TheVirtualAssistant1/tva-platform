@@ -13,6 +13,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
+
+app.use('/stripe/webhook', express.raw({ type: 'application/json' }));
+app.use(express.json({ limit: '1mb' }));
 // Serve static assets from src/ (widget.js, retell-frame.html, test-widget.html)
 app.use(express.static(__dirname));
 
@@ -59,7 +62,7 @@ const PRICE_TO_PLAN = {
 
 
 
-app.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+app.post('/stripe/webhook', async (req, res) => {
 const receivedAt = new Date().toISOString();
   try {
 
@@ -438,9 +441,6 @@ if (already) {
   }
 });
 
-app.use((req, res, next) => req.originalUrl.startsWith('/stripe/webhook') ? next() : express.json({ limit: '1mb' })(req, res, next));
-
-
 app.get("/health", (req, res) => res.json({ ok: true }));
 
 app.post("/v1/usage/increment", async (req, res) => {
@@ -726,6 +726,7 @@ app.get('/cancel', (req, res) => {
 });
 
 app.listen(port, () => console.log("API listening on http://localhost:" + port));
+
 
 
 
