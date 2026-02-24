@@ -459,6 +459,39 @@ if (already) {
 
 app.get("/health", (req, res) => res.json({ ok: true }));
 
+
+
+app.get("/debug/db_state", async (req, res) => {
+  let client;
+  try {
+    client = await pool.connect();
+  } catch (e) {
+    return res.status(500).json({ ok: false, where: "pool.connect", error: String(e?.message || e) });
+  }
+
+  try {
+    const ident = await client.query("select current_database() as db, current_user as usr, current_schema() as schema");
+    const subCount = await client.query("select count(*)::int as n from public.subscriptions");
+    const upCount  = await client.query("select count(*)::int as n from public.usage_periods");
+
+    // Optional: letzte 3 subscriptions (IDs)
+    const lastSubs = await client.query("select id, status, period_start, period_end from public.subscriptions order by period_start desc nulls last limit 3");
+
+    return res.json({
+      ok: true,
+      ident: ident.rows[0],
+      counts: {
+        subscriptions: subCount.rows[0].n,
+        usage_periods: upCount.rows[0].n
+      },
+      last_subscriptions: lastSubs.rows
+    });
+  } catch (e) {
+    return res.status(500).json({ ok: false, where: "query", error: String(e?.message || e), pg: { code: e?.code, position: e?.position } });
+  } finally {
+    client.release();
+  }
+});
 app.post("/v1/usage/increment", async (req, res) => {
   const subscriptionId = String(req.body?.subscription_id || "");
   const amount = Number(req.body?.amount ?? 1);
@@ -882,6 +915,7 @@ app.get("/debug/subscription_raw", async (req, res) => {
 });
 /* ===== END DEBUG ===== */
 app.listen(port, () => console.log("API listening on http://localhost:" + port));
+
 
 
 
