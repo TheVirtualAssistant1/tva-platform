@@ -15,6 +15,21 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 
+// === BUILD/DEPLOY DEBUG (facts) ===
+const TVA_STARTED_AT = new Date().toISOString();
+app.get("/__version", (req, res) => {
+  res.json({
+    ok: true,
+    started_at: TVA_STARTED_AT,
+    node: process.version,
+    render_service: process.env.RENDER_SERVICE_NAME || null,
+    render_commit: process.env.RENDER_GIT_COMMIT || null,
+    render_branch: process.env.RENDER_GIT_BRANCH || null
+  });
+});
+// === END BUILD/DEPLOY DEBUG ===
+
+
 app.use('/stripe/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json({ limit: '1mb' }));
 // Serve static assets from src/ (widget.js, retell-frame.html, test-widget.html)
@@ -783,6 +798,7 @@ app.get("/debug/subscription", async (req, res) => {
 });
 
 app.listen(port, () => console.log("API listening on http://localhost:" + port));
+
 
 
 
