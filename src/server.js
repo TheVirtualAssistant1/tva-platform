@@ -824,34 +824,41 @@ app.get("/debug/subscription_raw", async (req, res) => {
   const subscriptionId = String(req.query?.subscription_id || "");
   if (!subscriptionId) return res.status(400).json({ ok: false, error: "subscription_id required" });
 
+  let client;
   try {
-    const { pool } = await import("./db.js");
-    const client = await pool.connect();
-    try {
-      const sub = await client.query(`SELECT * FROM subscriptions WHERE id = 
-`, [subscriptionId]);
-      const up  = await client.query(
-        `SELECT * FROM usage_periods WHERE subscription_id = 
- ORDER BY created_at DESC LIMIT 1`,
-        [subscriptionId]
-      );
-
-      return res.json({
-        ok: true,
-        subscription_rowcount: sub.rowCount,
-        subscription: sub.rows[0] || null,
-        usage_period_rowcount: up.rowCount,
-        usage_period_latest: up.rows[0] || null
-      });
-    } finally {
-      client.release();
-    }
+    client = await pool.connect();
   } catch (e) {
-    return res.status(500).json({ ok: false, error: String(e?.message || e) });
+    const msg = (e && e.message) ? e.message : String(e);
+    return res.status(500).json({ ok: false, error: msg });
+  }
+
+  try {
+    const sub = await client.query(
+      "SELECT * FROM public.subscriptions WHERE id = $1 LIMIT 1",
+      [subscriptionId]
+    );
+
+    const usage = await client.query(
+      "SELECT * FROM public.usage_periods WHERE subscription_id = $1 ORDER BY created_at DESC LIMIT 5",
+      [subscriptionId]
+    );
+
+    return res.json({
+      ok: true,
+      subscription_id: subscriptionId,
+      subscription: sub.rows[0] || null,
+      usage_periods: usage.rows || []
+    });
+  } catch (e) {
+    const msg = (e && e.message) ? e.message : String(e);
+    return res.status(500).json({ ok: false, error: msg });
+  } finally {
+    client.release();
   }
 });
 /* ===== END DEBUG ===== */
 app.listen(port, () => console.log("API listening on http://localhost:" + port));
+
 
 
 
