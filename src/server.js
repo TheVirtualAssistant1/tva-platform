@@ -653,9 +653,8 @@ app.post('/create-checkout-session', express.json({ limit: '1mb' }), async (req,
     return res.json({
   url: session.url,
   debug_public_base_url: PUBLIC_BASE_URL,
-  debug_success_url: ${PUBLIC_BASE_URL}/success?session_id={CHECKOUT_SESSION_ID},
-  debug_cancel_url: ${PUBLIC_BASE_URL}/cancel
-});
+  debug_success_url: `${PUBLIC_BASE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+  debug_cancel_url: `${PUBLIC_BASE_URL}/cancel`});
   } catch (e) {
     console.error('create-checkout-session error:', e?.message || e);
     return res.status(500).json({ error: e?.message || String(e) });
@@ -748,6 +747,7 @@ app.get('/cancel', (req, res) => {
 });
 
 app.listen(port, () => console.log("API listening on http://localhost:" + port));
+
 
 
 
