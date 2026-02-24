@@ -18,7 +18,7 @@ const app = express();
 app.use('/stripe/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json({ limit: '1mb' }));
 // Serve static assets from src/ (widget.js, retell-frame.html, test-widget.html)
-app.use(express.static(__dirname));
+// app.use(express.static(__dirname));  // moved below API routes
 
 app.get('/db-test', async (req, res) => {
   try {
@@ -743,7 +743,9 @@ app.get('/cancel', (req, res) => {
   res.status(200).send('Payment canceled. You can close this tab.');
 });
 
+app.use(express.static(__dirname));
 app.listen(port, () => console.log("API listening on http://localhost:" + port));
+
 
 
 
