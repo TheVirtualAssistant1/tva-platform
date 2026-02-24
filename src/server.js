@@ -797,7 +797,62 @@ app.get("/debug/subscription", async (req, res) => {
   }
 });
 
+/* ===== DEBUG (TEMP) — DB INFO + RAW LOOKUPS ===== */
+app.get("/__dbinfo", async (req, res) => {
+  try {
+    const { pool } = await import("./db.js");
+    const client = await pool.connect();
+    try {
+      const r = await client.query(`
+        SELECT
+          current_database()        AS db,
+          current_schema()          AS schema,
+          current_user              AS db_user,
+          inet_server_addr()::text  AS server_addr,
+          inet_server_port()        AS server_port
+      `);
+      return res.json({ ok: true, ...r.rows[0] });
+    } finally {
+      client.release();
+    }
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: String(e?.message || e) });
+  }
+});
+
+app.get("/debug/subscription_raw", async (req, res) => {
+  const subscriptionId = String(req.query?.subscription_id || "");
+  if (!subscriptionId) return res.status(400).json({ ok: false, error: "subscription_id required" });
+
+  try {
+    const { pool } = await import("./db.js");
+    const client = await pool.connect();
+    try {
+      const sub = await client.query(`SELECT * FROM subscriptions WHERE id = 
+`, [subscriptionId]);
+      const up  = await client.query(
+        `SELECT * FROM usage_periods WHERE subscription_id = 
+ ORDER BY created_at DESC LIMIT 1`,
+        [subscriptionId]
+      );
+
+      return res.json({
+        ok: true,
+        subscription_rowcount: sub.rowCount,
+        subscription: sub.rows[0] || null,
+        usage_period_rowcount: up.rowCount,
+        usage_period_latest: up.rows[0] || null
+      });
+    } finally {
+      client.release();
+    }
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: String(e?.message || e) });
+  }
+});
+/* ===== END DEBUG ===== */
 app.listen(port, () => console.log("API listening on http://localhost:" + port));
+
 
 
 
