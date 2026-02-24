@@ -457,10 +457,14 @@ if (already) {
   }
 });
 
-app.get("/health", (req, res) => res.json({ ok: true }));
-
-
-
+app.get("/health", (req, res) => res.json({
+  ok: true,
+  started_at: (globalThis.__TVA_STARTED_AT || (globalThis.__TVA_STARTED_AT = new Date().toISOString())),
+  node: process.version,
+  render_service: process.env.RENDER_SERVICE_NAME || process.env.RENDER_SERVICE_ID || null,
+  render_commit: process.env.RENDER_GIT_COMMIT || null,
+  render_branch: process.env.RENDER_GIT_BRANCH || null
+}));
 app.get("/debug/db_state", async (req, res) => {
   let client;
   try {
@@ -915,6 +919,7 @@ app.get("/debug/subscription_raw", async (req, res) => {
 });
 /* ===== END DEBUG ===== */
 app.listen(port, () => console.log("API listening on http://localhost:" + port));
+
 
 
 
