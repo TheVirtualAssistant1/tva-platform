@@ -829,35 +829,60 @@ app.get("/debug/subscription_raw", async (req, res) => {
     client = await pool.connect();
   } catch (e) {
     const msg = (e && e.message) ? e.message : String(e);
-    return res.status(500).json({ ok: false, error: msg });
+    return res.status(500).json({ ok: false, where: "pool.connect", error: msg });
   }
 
-  try {
-    const sub = await client.query(
-      "SELECT * FROM public.subscriptions WHERE id = $1 LIMIT 1",
-      [subscriptionId]
-    );
+  const q1 = "SELECT 1 as ok";
+  const qSub = "SELECT id, customer_id, plan_code, plan_limit, period_start, period_end, status FROM public.subscriptions WHERE id = $1 LIMIT 1";
+  const qUsage = "SELECT id, subscription_id, used_requests, extra_requests_purchased, created_at FROM public.usage_periods WHERE subscription_id = $1 ORDER BY created_at DESC LIMIT 5";
 
-    const usage = await client.query(
-      "SELECT * FROM public.usage_periods WHERE subscription_id = $1 ORDER BY created_at DESC LIMIT 5",
-      [subscriptionId]
-    );
+  try {
+    const ping = await client.query(q1);
+
+    const sub = await client.query(qSub, [subscriptionId]);
+    const usage = await client.query(qUsage, [subscriptionId]);
 
     return res.json({
       ok: true,
+      ping: ping.rows?.[0] ?? null,
       subscription_id: subscriptionId,
       subscription: sub.rows[0] || null,
-      usage_periods: usage.rows || []
+      usage_periods: usage.rows || [],
+      debug: {
+        q1_len: q1.length,
+        qSub_len: qSub.length,
+        qUsage_len: qUsage.length
+      }
     });
   } catch (e) {
-    const msg = (e && e.message) ? e.message : String(e);
-    return res.status(500).json({ ok: false, error: msg });
+    // pg-error details
+    const err = e || {};
+    return res.status(500).json({
+      ok: false,
+      where: "client.query",
+      error: String(err.message || err),
+      pg: {
+        code: err.code,
+        position: err.position,
+        routine: err.routine,
+        severity: err.severity,
+        detail: err.detail,
+        where: err.where
+      },
+      debug: {
+        subscription_id: subscriptionId,
+        q1: q1,
+        qSub: qSub,
+        qUsage: qUsage
+      }
+    });
   } finally {
     client.release();
   }
 });
 /* ===== END DEBUG ===== */
 app.listen(port, () => console.log("API listening on http://localhost:" + port));
+
 
 
 
