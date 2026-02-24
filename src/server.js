@@ -469,7 +469,7 @@ try {
     await client.query("BEGIN");
 
     const sub = await client.query(
-      `SELECT id, plan_limit FROM subscriptions WHERE id = $1 AND status = 'active'`,
+      `SELECT id, plan_limit FROM subscriptions WHERE id = $1 AND status IN ('active','trialing')`,
       [subscriptionId]
     );
     if (sub.rowCount === 0) {
@@ -575,7 +575,7 @@ app.get("/v1/usage/current", async (req, res) => {
 
   try {
     const sub = await client.query(
-      `SELECT id, plan_limit FROM subscriptions WHERE id = $1 AND status = 'active'`,
+      `SELECT id, plan_limit FROM subscriptions WHERE id = $1 AND status IN ('active','trialing')`,
       [subscriptionId]
     );
     if (sub.rowCount === 0) return res.status(404).json({ ok: false, error: "subscription not found/active" });
@@ -783,6 +783,7 @@ app.get("/debug/subscription", async (req, res) => {
 });
 
 app.listen(port, () => console.log("API listening on http://localhost:" + port));
+
 
 
 
