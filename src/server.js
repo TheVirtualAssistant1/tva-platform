@@ -8,7 +8,8 @@ dotenv.config({ path: new URL('../.env', import.meta.url).pathname });
 import Stripe from 'stripe';
 import { pool } from "./db.js";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
