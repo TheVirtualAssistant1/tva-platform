@@ -658,6 +658,23 @@ app.post('/create-checkout-session', express.json({ limit: '1mb' }), async (req,
 });
 const port = Number(process.env.PORT || 3001);
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || ("http://localhost:" + port);
+
+// STARTUP DEBUG (temporary)
+(async () => {
+  try {
+    console.log("[startup] PUBLIC_BASE_URL =", PUBLIC_BASE_URL);
+    const sk = process.env.STRIPE_SECRET_KEY || "";
+    console.log("[startup] STRIPE_SECRET_KEY prefix =", (sk.slice(0, 7) + "..."));
+    const resp = await fetch("https://api.stripe.com/v1/account", {
+      headers: { Authorization: "Bearer " + sk }
+    });
+    const acct = await resp.json();
+    console.log("[startup] STRIPE account =", { id: acct.id, email: acct.email, livemode: acct.livemode });
+  } catch (e) {
+    console.log("[startup] stripe account lookup failed:", (e && e.message) ? e.message : e);
+  }
+})();
+// END STARTUP DEBUG (temporary)
 // Checkout redirect endpoints (Stripe success/cancel)
 app.get('/success', async (req, res) => {
   try {
@@ -726,6 +743,7 @@ app.get('/cancel', (req, res) => {
 });
 
 app.listen(port, () => console.log("API listening on http://localhost:" + port));
+
 
 
 
