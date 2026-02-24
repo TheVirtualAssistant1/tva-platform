@@ -651,8 +651,7 @@ app.post('/create-checkout-session', express.json({ limit: '1mb' }), async (req,
       }
     });
 
-    return res.json({
-  url: session.url,
+    return res.json({ url: session.url });
   } catch (e) {
     console.error('create-checkout-session error:', e?.message || e);
     return res.status(500).json({ error: e?.message || String(e) });
@@ -745,6 +744,7 @@ app.get('/cancel', (req, res) => {
 });
 
 app.listen(port, () => console.log("API listening on http://localhost:" + port));
+
 
 
 
