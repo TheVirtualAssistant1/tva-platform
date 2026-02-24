@@ -744,7 +744,46 @@ app.get('/cancel', (req, res) => {
 });
 
 app.use(express.static(__dirname));
+app.get("/debug/subscription", async (req, res) => {
+  const subscriptionId = String(req.query?.subscription_id || "");
+  if (!subscriptionId) return res.status(400).json({ ok: false, error: "subscription_id required" });
+
+  let client;
+  try {
+    client = await pool.connect();
+  } catch (e) {
+    const msg = (e && e.message) ? e.message : String(e);
+    return res.status(500).json({ ok: false, error: "db_connect_failed", detail: msg });
+  }
+
+  try {
+    const sub = await client.query(
+      "SELECT id, customer_id, status, plan_code, plan_limit, period_start, period_end FROM subscriptions WHERE id = ",
+      [subscriptionId]
+    );
+
+    const usage = await client.query(
+      "SELECT id, subscription_id, used_requests, extra_requests_purchased, notice50_sent, notice70_sent, notice85_sent, created_at FROM usage_periods WHERE subscription_id =  ORDER BY created_at DESC LIMIT 5",
+      [subscriptionId]
+    );
+
+    return res.json({
+      ok: true,
+      subscription_id: subscriptionId,
+      sub_found: sub.rowCount,
+      sub: sub.rows[0] || null,
+      usage_rows: usage.rowCount,
+      usage: usage.rows
+    });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: "query_failed", detail: String(e && (e.message || e)) });
+  } finally {
+    try { client.release(); } catch {}
+  }
+});
+
 app.listen(port, () => console.log("API listening on http://localhost:" + port));
+
 
 
 
